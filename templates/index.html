@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>PDF to Word Chatbot</title>
+    <style>
+        body { font-family: Arial, sans-serif; background:#111; color:#eee; margin:0; }
+        .container { max-width: 800px; margin: 0 auto; padding: 24px; }
+        h1 { margin: 0 0 16px; }
+        .panel { background:#1b1b1b; padding:16px; border-radius:8px; }
+        .row { margin-top:12px; }
+        input[type=file] { color:#ccc; }
+        button { background:#4CAF50; color:#fff; border:0; padding:8px 12px; border-radius:6px; cursor:pointer; }
+        button:disabled { opacity:0.6; cursor:not-allowed; }
+        a { color:#4CAF50; }
+        #status { margin-top:10px; font-size:14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PDF to Word Chatbot</h1>
+        <div class="panel">
+            <div class="row">
+                <input id="pdf" type="file" accept="application/pdf" />
+                <button id="upload">Convert</button>
+            </div>
+            <div id="status"></div>
+            <div id="result" class="row"></div>
+        </div>
+        <div class="panel" style="margin-top:16px;">
+            <div class="row">
+                <input id="msg" type="text" placeholder="Ask something" style="width:70%; padding:8px;" />
+                <button id="send">Send</button>
+            </div>
+            <div id="chat" class="row"></div>
+        </div>
+    </div>
+    <script>
+    const pdfInput = document.getElementById('pdf');
+    const uploadBtn = document.getElementById('upload');
+    const statusDiv = document.getElementById('status');
+    const resultDiv = document.getElementById('result');
+    const msgInput = document.getElementById('msg');
+    const sendBtn = document.getElementById('send');
+    const chatDiv = document.getElementById('chat');
+    let currentUid = '';
+
+    uploadBtn.onclick = async () => {
+        if (!pdfInput.files.length) { statusDiv.textContent = 'Select a PDF.'; return; }
+        statusDiv.textContent = 'Processing…';
+        uploadBtn.disabled = true;
+        const fd = new FormData();
+        fd.append('file', pdfInput.files[0]);
+        try {
+            const r = await fetch('/process', { method:'POST', body: fd });
+            const j = await r.json();
+            if (j.download_url) {
+                resultDiv.innerHTML = `<a href="${j.download_url}">Download Word File</a>`;
+                statusDiv.textContent = 'Done';
+                currentUid = j.uid || '';
+            } else {
+                statusDiv.textContent = j.error || 'Failed';
+            }
+        } catch (e) {
+            statusDiv.textContent = 'Error';
+        } finally {
+            uploadBtn.disabled = false;
+        }
+    };
+
+    sendBtn.onclick = async () => {
+        const m = msgInput.value.trim();
+        if (!m) return;
+        chatDiv.innerHTML += `<div>You: ${m}</div>`;
+        msgInput.value = '';
+        try {
+            const r = await fetch('/ask', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ message: m, uid: currentUid }) });
+            const j = await r.json();
+            chatDiv.innerHTML += `<div>Bot: ${j.reply}</div>`;
+        } catch (e) {
+            chatDiv.innerHTML += `<div>Bot: Error</div>`;
+        }
+    };
+    </script>
+</body>
+</html>
